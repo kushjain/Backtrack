@@ -1,8 +1,10 @@
 #!/usr/bin/python2
 import inspect
 import sys
+import os
 from random import random,sample,choice, shuffle
 import solveAgent
+import util
 
 
 ###########################################
@@ -59,32 +61,37 @@ class sudoku:
         """Given a position, it takes the value and apply the Unary contraints with respect to fixed configuration of board"""
 
         queue = [position]
+        closed = set()
         
         while queue:
+            #print 'queue:', queue
             x, y = queue.pop()
-            val = self.board[x][y]
+            closed.add((x,y))
 
             neighbours = []
 
-            """
-            neighbours.append[(x, range(N) - y)]            #Same row    
-            neighbours.append[(range(N) - x, y)]            #Same columns
-            neighbours.append[Same regions]                 #Same region
-            
-            """
+            neighbours.extend([(x,i) for i in range(self.size) if i != y])            #Same row    
+            neighbours.extend([(i,y) for i in range(self.size) if i != x])            #Same columns
 
+            region = self.region((x,y))
+            start = region[0]*int(self.size**0.5), region[1]*int(self.size**0.5)
+            stop = start[0] + int(self.size**0.5), start[1] + int(self.size**0.5)
+            neighbours.extend([(i,j) for i in range(start[0],stop[0]) for j in range(start[1],stop[1]) if (i,j) != (x,y)])
+
+            val = self.board[x][y]
             #raiseNotDefined()
             
+            #print 'neighbours', neighbours
             for node in neighbours:
-                state[node].remove(val)                         #Correct syntax?
-                if len(state[node]) == 1:
-                    queue.add(state[node])
+                try:
+                    state[node].remove(val)
+                except ValueError:
+                    pass
+                #print 'processed', node, state[node]
+                if len(state[node]) == 1 and node not in closed:
+                    queue.append(node)
                 elif len(state[node]) == 0:
                     return None                                 #Conflict detected
-            
-            
-            #Similarly, remove Column Constraints
-            #Region Constraints
             
         return state
 
@@ -103,6 +110,8 @@ class sudoku:
                         sys.exit()
 
         #print self.valDomain
+        for i,j in self.valDomain.items():
+            print i,j
         return self.valDomain
 
     def isGoalState(self, state):
@@ -128,7 +137,7 @@ class sudoku:
                 position = (x, y)
                 
                 #These are already fixed
-                if len(state[position)] == 1:
+                if len(state[position]) == 1:
                     continue
 
                 #Figuring out variable with least choices  
@@ -166,36 +175,52 @@ class sudoku:
         #If no value found
         return None
         
-
-    def simple_visualize(self, state):
+    def unix_visualize(self, state):
         """Visualize the current state using ASCII-art of the board"""
+        #works only on *nix system
+
+        # no comment needed ;)
+        n = int(self.size**0.5)
+        pattern = (util.bcolors.OKGREEN, util.bcolors.OKBLUE)
+        print '_' * self.size * 4
+        for i in range(self.size):
+            print util.bcolors.WARNING + '|' + util.bcolors.ENDC,
+            for j in range(self.size):
+                if (i,j) in self.fixedPos:
+                    print util.bcolors.UNDERLINE + util.bcolors.BOLD + str(state[(i,j)][0]) + util.bcolors.ENDC,
+                else:
+                    if len(state[(i,j)]) == 1:
+                        out = str(state[(i,j)][0])
+                    else:
+                        out = '.'
+                    switch = (reduce(lambda rst, d: rst * n + d, self.region((i,j))))
+                    print pattern[switch%2] + out + util.bcolors.ENDC,
+                print util.bcolors.WARNING + '|' + util.bcolors.ENDC,
+            print ''
+        print ''
+
+
+    def visualize(self, state):
+        """Visualize the current state using ASCII-art of the board"""
+        
+        if os.name == 'posix':
+            self.unix_visualize(state)
+            return
 
         print '_' * self.size * 4
-        
+
         for i in range(self.size):
-            print '|',
+            print '|', 
             for j in range(self.size):
                 position = (i, j)
                 if len(state[position]) == 1:
                     print state[position][0], ' |',
                 else:
                     print '.', ' |',
-            print ' '
-       
+            print '' 
+        print ''
         
-#############################################
-# HELPER FUNCTIONS
-#############################################
-
-def raiseNotDefined():
-    fileName = inspect.stack()[1][1]
-    line = inspect.stack()[1][2]
-    method = inspect.stack()[1][3]
-
-    print "*** Method not implemented: %s at line %s of %s" % (method, line, fileName)
-    sys.exit(0)
-
-
+        
 ############################################
     #TESTING
 ###########################################
@@ -222,7 +247,18 @@ incompleteBoard = [((0, 0), 4), ((1, 1), 3), ((2, 2), 2), ((3, 3), 1), ((1, 2), 
 completeBoard = [((0, 0), 4), ((1, 1), 3), ((2, 2), 2), ((3, 3), 1), ((1, 2), 1), ((2, 1), 4), ((0, 1), 1), ((0, 2), 3), ((0, 3), 2), ((1, 0), 2), ((1, 3), 4), ((2, 0), 1), ((2, 3), 3), ((3, 0), 3), ((3, 1), 2), ((3, 2), 4)]
 prob = sudoku(4, incompleteBoard)
 state = prob.getStartState()
-prob.simple_visualize(state)
+prob.visualize(state)
 print prob.isGoalState(state)
-prob.simple_visualize(prob.getSuccessor(state))
+state = prob.getSuccessor(state)
+prob.visualize(state)
+state = prob.getSuccessor(state)
+prob.visualize(state)
+state = prob.getSuccessor(state)
+prob.visualize(state)
+state = prob.getSuccessor(state)
+prob.visualize(state)
+state = prob.getSuccessor(state)
+prob.visualize(state)
+state = prob.getSuccessor(state)
+prob.visualize(state)
 #print solveAgent.dfs(prob)
