@@ -9,19 +9,15 @@ import util
 
 ###########################################
 """
-ESSENTIAL TO DO
-Complete Prune() function           [DO THIS FIRST]
-Test the prune(), getSuccessor functions
-Test isGoalState() for final incorrect state (see isGoalState for more details)     [Note: Implement prune() before]
-
-OPTIONAL TO DO
+TO DO
+getSuccessor: should iterate over all the domain values?
 Test getStartState : Detect incorrect initial configurations [Note: Implement prune() before]
 Can program check for infeasible boards?
 Improve Getvalue() to pick least conflicted choice?
 Arc Consistency
 
 DONE AND TESTED
-init, getStartState, visualize, isGoalState
+init, getStartState, visualize, isGoalState, prune
 """
 ###########################################
 
@@ -36,39 +32,48 @@ class sudoku:
             raise Exception('sudoku: Illegal board size')
 
         self.size = N
-        self.board = [['.' for x in range(self.size)] for y in range(self.size)]
+        self.valDomain = {}
 
-        #Initialize the board positions
+        # save the fixed positions and assign their domain values
         self.fixedPos = set()
         for pos, val in predefinedValues:
             self.fixedPos.add(pos)
-            self.board[pos[0]][pos[1]] = val
+            self.valDomain[pos] = [val]
 
-        #Initialize the rest of board and assign domains to rest of positions
-        self.valDomain = {}
+        # assign domains to rest of the positions
         for x in range(self.size):
             for y in range(self.size):
                 pos = (x, y)
                 if pos not in self.fixedPos:
                     self.valDomain[pos] = [i for i in range(1, self.size+1)]
-                else:
-                    self.valDomain[pos] = [self.board[x][y]]
         
         self.region = lambda pos: (int(pos[0]/self.size**0.5), int(pos[1]/self.size**0.5))
 
+    def getStartState(self):
+        """Initializes the board, and returns starting configuration. The 'state' is the set of domains of all the positions in the board"""
+
+        for position in self.fixedPos:
+            # apply unary constraints wrt to the 'fixedPos'
+            self.valDomain = self.prune(self.valDomain, position, ignoreFixed=False)
+
+            if self.valDomain == None:
+                print "Conflict Detected in Initial Configuration"
+                sys.exit()
+
+        return self.valDomain
+
     def prune(self, state, position, ignoreFixed=True):
-        
         """Given a position, it takes the value and apply the Unary contraints with respect to fixed configuration of board"""
 
-        queue = [position]
-        closed = set()
-        
+        queue = [position]          # nodes which can be used for applying unary constraints
+        closed = set(position)      # for preventing dups
+
         while queue:
+            # get the next node
             x, y = queue.pop()
             val = self.getValue(state, (x,y))
 
-            closed.add((x,y))
-
+            # get its neighbours
             neighbours = []
 
             neighbours.extend([(x,i) for i in range(self.size) if i != y])            #Same row    
@@ -79,40 +84,28 @@ class sudoku:
             stop = start[0] + int(self.size**0.5), start[1] + int(self.size**0.5)
             neighbours.extend([(i,j) for i in range(start[0],stop[0]) for j in range(start[1],stop[1]) if (i,j) != (x,y)])  # same region
 
+            # apply constraint over the neighbours
             for node in neighbours:
                 try:
+                    # delete 'value' from each neighbour
                     state[node].remove(val)
-                except ValueError:
+                except ValueError:  # if 'val' is not present in 'state[node]'
                     pass
 
-                if len(state[node]) == 1  and node not in closed and (not ignoreFixed or node not in self.fixedPos):
+                # we can process the node iff there is single value in its domain i.e. no confusion regarding its value
+                if len(state[node]) == 1 and node not in closed and (not ignoreFixed or node not in self.fixedPos):     # ignoreFixed: ignore the 'fixedPos' as they cannot reduce the domain further
                     queue.append(node)
+                    closed.add(node)
                 elif len(state[node]) == 0:
-                    """
-                    print 'In prune, failed due to', node, 'while working on', (x,y)
-                    self.visualize(state)
-                    """
                     return None                                 #Conflict detected
             
         return state
-
-    def getStartState(self):
-        """Initializes the board, and returns starting configuration"""
-	#In this, instead of board, we propagate value domains. 
-
-        for position in self.fixedPos:
-            self.valDomain = self.prune(self.valDomain, position, ignoreFixed=False)
-
-            if self.valDomain == None:
-                print "Conflict Detected in Initial Configuration"
-                sys.exit()
-
-        return self.valDomain
 
     def isGoalState(self, state):
         """Returns whether given state is goal or not"""
         #Note it does not check constraints. It assumes that if you have reached final state, you would have done it without violating constraints.
         #It only checks whether the given state is leaf node
+        # This assumption is based on 'prune' which ensures that constraints are not violated
     
         for x in range(self.size):
             for y in range(self.size):
@@ -122,16 +115,15 @@ class sudoku:
         return True
 
     def getVar(self, state):
-        """Returns Most Heavily constrained variable"""
+        """Returns the 'Most Heavily' constrained variable"""
         #In this case, it means variable with least choices
         
         try:
             _, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
-        except ValueError:
+        except ValueError:  # if we are in goal state i.e. all the values have been assigned
             return (-1,-1)
 
         return bestPosition
-
 		
     def getValue(self, state, var):
         """ Returns least constrained value for given variabe."""
@@ -142,6 +134,7 @@ class sudoku:
 
     def getSuccessor(self, state):
         """Returns a successor for given state"""
+        # TODO: should iterate over all the values or just get the value as arg
 
         var = self.getVar(state)
         if var == (-1,-1):
@@ -149,27 +142,26 @@ class sudoku:
 
         while state[var]:
             val = self.getValue(state, var)
+
             newState = state.copy()
             newState[var] = [val]
             newState = self.prune(newState, var)
 
-            if newState == None:
+            if newState == None:        # new state is conflicted
                 try:
                     state[var].remove(val)
                 except ValueError:
-                    #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
                     break
             else:
                 return newState
         
-        #print 'no possible value for', var
-        return None                  #If no value found
+        return None      #If no value found
         
     def unix_visualize(self, state):
-        """Visualize the current state using ASCII-art of the board"""
+        """Visualize the current state using ASCII-art of the board with fancy colors. For *nix systems only"""
         #works only on *nix system
-
         # no comment needed ;)
+
         undecided = []
         n = int(self.size**0.5)
         pattern = (util.bcolors.OKGREEN, util.bcolors.OKBLUE)
@@ -192,6 +184,7 @@ class sudoku:
                 print util.bcolors.WARNING + '|' + util.bcolors.ENDC,
             print ''
         print ''
+
         for i in undecided:
             print util.bcolors.HEADER + str(i) + util.bcolors.ENDC + ' -> ' + util.bcolors.BOLD + str(state[i]) + util.bcolors.ENDC
 
@@ -232,12 +225,19 @@ parser.add_argument("-n", type=int, default=9, help="size of problem")
 parser.add_argument("-i", default='test', help="file containing the initial input configuration for sudoku")
 args = parser.parse_args()
 
-predefValues = util.readConfigFile(args.i)
+predefValues = util.readConfigFile(args.i, args.n)
 
 print len(predefValues), 'sudoku(s)'
 
 prob = [sudoku(N=args.n, predefinedValues=val) for val in predefValues]
 
 for p in prob:
-    solveAgent.dfs(p)
+    start_state = p.getStartState()
+    p.visualize(start_state)
+    print p.isGoalState(start_state)
+    state = p.getSuccessor(start_state)
+    if state != None:
+        print p.visualize(state)
     raw_input()
+
+    #solveAgent.dfs(p)
