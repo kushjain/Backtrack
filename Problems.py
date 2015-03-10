@@ -5,6 +5,7 @@ import os
 from random import random,sample,choice, shuffle
 import solveAgent
 import util
+import copy
 
 
 ###########################################
@@ -56,18 +57,18 @@ class sudoku:
         
         self.region = lambda pos: (int(pos[0]/self.size**0.5), int(pos[1]/self.size**0.5))
 
+        self.changedVal = []
+
     def prune(self, state, position, ignoreFixed=True):
         
         """Given a position, it takes the value and apply the Unary contraints with respect to fixed configuration of board"""
 
         queue = [position]
-        closed = set()
+        closed = set([(position[0], position[1])])
         
         while queue:
             x, y = queue.pop()
-            val = self.getValue(state, (x,y))
-
-            closed.add((x,y))
+            val = self.getValue(state, (x,y))               
 
             neighbours = []
 
@@ -87,9 +88,11 @@ class sudoku:
 
                 if len(state[node]) == 1  and node not in closed and (not ignoreFixed or node not in self.fixedPos):
                     queue.append(node)
+                    closed.add(node)
+
                 elif len(state[node]) == 0:
-                    """
-                    print 'In prune, failed due to', node, 'while working on', (x,y)
+                    
+                    """print 'In prune, failed due to', node, 'while working on', (x,y)
                     self.visualize(state)
                     """
                     return None                                 #Conflict detected
@@ -126,11 +129,11 @@ class sudoku:
         #In this case, it means variable with least choices
         
         try:
-            _, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
+            minLength, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
         except ValueError:
             return (-1,-1)
 
-        return bestPosition
+        return minLength, bestPosition
 
 		
     def getValue(self, state, var):
@@ -138,30 +141,35 @@ class sudoku:
         #This means we plug in all values for variable, and then sum up the values to check.
         #In this test module, however we simply pick the first value in Domain
 
-        return state[var][0]
+        try:
+            return state[var][0]
+        except:
+            return None
 
-    def getSuccessor(self, state):
+    def getSuccessor(self, state, var):
         """Returns a successor for given state"""
-
-        var = self.getVar(state)
+        
         if var == (-1,-1):
             return None
 
-        while state[var]:
-            val = self.getValue(state, var)
-            newState = state.copy()
+        returnState = state
+
+        while returnState[var]:
+            val = self.getValue(returnState, var)
+            newState = copy.deepcopy(returnState)
             newState[var] = [val]
             newState = self.prune(newState, var)
 
             if newState == None:
                 try:
-                    state[var].remove(val)
+                    returnState[var].remove(val)
+                    #print "Removing", val, "from ", var, "Left", returnState[var]
                 except ValueError:
                     #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
                     break
             else:
                 return newState
-        
+    
         #print 'no possible value for', var
         return None                  #If no value found
         
@@ -198,6 +206,11 @@ class sudoku:
 
     def visualize(self, state):
         """Visualize the current state using ASCII-art of the board"""
+
+        #If there is no state
+        if state == None:
+            print "No State"
+            return
         
         if os.name == 'posix':
             self.unix_visualize(state)
@@ -232,12 +245,23 @@ parser.add_argument("-n", type=int, default=9, help="size of problem")
 parser.add_argument("-i", default='test', help="file containing the initial input configuration for sudoku")
 args = parser.parse_args()
 
-predefValues = util.readConfigFile(args.i)
+predefValues = util.readConfigFile(args.i, args.n)
 
 print len(predefValues), 'sudoku(s)'
 
 prob = [sudoku(N=args.n, predefinedValues=val) for val in predefValues]
 
+
 for p in prob:
     solveAgent.dfs(p)
-    raw_input()
+    #start_state = p.getStartState()
+    #p.visualize(start_state)
+    #print p.isGoalState(start_state)
+    #q = p.getSuccessor(start_state)
+    #print p.visualize(q)
+    #r = p.getSuccessor(q)
+    #print p.visualize(r)
+    
+    #raw_input()
+    
+
