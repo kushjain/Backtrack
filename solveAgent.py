@@ -7,10 +7,10 @@ I have written a general algorithm. which should be correct, but without problem
 def graphSearch(problem, fringe):
     #Generic Graph Search Algorithm Main Function
     closed = set()                          #Needed? 
-    fringe.push(problem.getStartState())     #Structure is : [(item), (item), ...], priority where each item is (state, direction, total Cumulative Cost)
+    fringe.append(problem.getStartState())     #Structure is : [(item), (item), ...], priority where each item is (state, direction, total Cumulative Cost)
     
-    while 1:
-        if fringe.isEmpty():
+    while True:
+        if not len(fringe):
             return []
             
         node = fringe.pop()
