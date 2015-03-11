@@ -8,24 +8,6 @@ import util
 import copy
 
 
-###########################################
-"""
-ESSENTIAL TO DO
-Complete Prune() function           [DO THIS FIRST]
-Test the prune(), getSuccessor functions
-Test isGoalState() for final incorrect state (see isGoalState for more details)     [Note: Implement prune() before]
-
-OPTIONAL TO DO
-Test getStartState : Detect incorrect initial configurations [Note: Implement prune() before]
-Can program check for infeasible boards?
-Improve Getvalue() to pick least conflicted choice?
-Arc Consistency
-
-DONE AND TESTED
-init, getStartState, visualize, isGoalState
-"""
-###########################################
-
 class sudoku:
     """This class contains member functions which describe the empty sudoko board"""
 
@@ -37,34 +19,28 @@ class sudoku:
             raise Exception('sudoku: Illegal board size')
 
         self.size = N
-        self.board = [['.' for x in range(self.size)] for y in range(self.size)]
+        self.valDomain = {}
 
-        #Initialize the board positions
+        # save the fixed positions and assign their domain values
         self.fixedPos = set()
         for pos, val in predefinedValues:
             self.fixedPos.add(pos)
-            self.board[pos[0]][pos[1]] = val
+            self.valDomain[pos] = [val]
 
-        #Initialize the rest of board and assign domains to rest of positions
-        self.valDomain = {}
+        # assign domains to rest of the positions
         for x in range(self.size):
             for y in range(self.size):
                 pos = (x, y)
                 if pos not in self.fixedPos:
                     self.valDomain[pos] = [i for i in range(1, self.size+1)]
-                else:
-                    self.valDomain[pos] = [self.board[x][y]]
         
         self.region = lambda pos: (int(pos[0]/self.size**0.5), int(pos[1]/self.size**0.5))
 
-        self.changedVal = []
-
     def prune(self, state, position, ignoreFixed=True):
-        
         """Given a position, it takes the value and apply the Unary contraints with respect to fixed configuration of board"""
 
         queue = [position]
-        closed = set([(position[0], position[1])])
+        closed = set(position)
         
         while queue:
             x, y = queue.pop()
@@ -80,28 +56,27 @@ class sudoku:
             stop = start[0] + int(self.size**0.5), start[1] + int(self.size**0.5)
             neighbours.extend([(i,j) for i in range(start[0],stop[0]) for j in range(start[1],stop[1]) if (i,j) != (x,y)])  # same region
 
+            # check the effect of setting 'val' to 'position' on neighbours 
             for node in neighbours:
                 try:
+                    # remove 'val' from domain
                     state[node].remove(val)
                 except ValueError:
                     pass
 
+                # single value left?
                 if len(state[node]) == 1  and node not in closed and (not ignoreFixed or node not in self.fixedPos):
                     queue.append(node)
                     closed.add(node)
 
+                # domain empty?
                 elif len(state[node]) == 0:
-                    
-                    """print 'In prune, failed due to', node, 'while working on', (x,y)
-                    self.visualize(state)
-                    """
                     return None                                 #Conflict detected
             
         return state
 
     def getStartState(self):
         """Initializes the board, and returns starting configuration"""
-	#In this, instead of board, we propagate value domains. 
 
         for position in self.fixedPos:
             self.valDomain = self.prune(self.valDomain, position, ignoreFixed=False)
@@ -111,6 +86,7 @@ class sudoku:
                 sys.exit()
 
         return self.valDomain
+
 
     def isGoalState(self, state):
         """Returns whether given state is goal or not"""
@@ -133,45 +109,28 @@ class sudoku:
         except ValueError:
             return (-1,-1)
 
-        return minLength, bestPosition
+        return bestPosition
 
-		
     def getValue(self, state, var):
-        """ Returns least constrained value for given variabe."""
-        #This means we plug in all values for variable, and then sum up the values to check.
-        #In this test module, however we simply pick the first value in Domain
+        """Get a value from domain of var. Returns the first if multiple values are present"""
+        return state[var][0]
 
-        try:
-            return state[var][0]
-        except:
-            return None
+    def getDomain(self, state, var):
+        """Get the value-domain of 'var'"""
+        return state[var]
 
-    def getSuccessor(self, state, var):
-        """Returns a successor for given state"""
+    def removeValue(self, state, var, val):
+        """Remove 'val' from domain of 'var'. May throw Exception if 'val' is not present"""
+        state[var].remove(val)
+
+    def trySetValue(self, state, var, val):
+        """sets 'var' to 'val and checks for constraints. Returns 'None' if constraints fail else the new state"""
         
-        if var == (-1,-1):
-            return None
+        newState = copy.deepcopy(state)
+        newState[var] = [val]
+        newState = self.prune(newState, var)
 
-        returnState = state
-
-        while returnState[var]:
-            val = self.getValue(returnState, var)
-            newState = copy.deepcopy(returnState)
-            newState[var] = [val]
-            newState = self.prune(newState, var)
-
-            if newState == None:
-                try:
-                    returnState[var].remove(val)
-                    #print "Removing", val, "from ", var, "Left", returnState[var]
-                except ValueError:
-                    #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
-                    break
-            else:
-                return newState
-    
-        #print 'no possible value for', var
-        return None                  #If no value found
+        return newState
         
     def unix_visualize(self, state):
         """Visualize the current state using ASCII-art of the board"""
@@ -251,17 +210,6 @@ print len(predefValues), 'sudoku(s)'
 
 prob = [sudoku(N=args.n, predefinedValues=val) for val in predefValues]
 
-
 for p in prob:
-    solveAgent.dfs(p)
-    #start_state = p.getStartState()
-    #p.visualize(start_state)
-    #print p.isGoalState(start_state)
-    #q = p.getSuccessor(start_state)
-    #print p.visualize(q)
-    #r = p.getSuccessor(q)
-    #print p.visualize(r)
-    
+    solveAgent.backtracking_search(p)
     #raw_input()
-    
-

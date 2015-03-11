@@ -1,19 +1,50 @@
 """
-TO DO:
-Test Run it against Sudoku DB to ensure it works in all cicumstances
+these guys solve problems
 """
 
+def backtracking_search(problem):
+    result = backtracking_recur(problem, problem.getStartState())
+    if result == False:
+        print 'Failed!!'
+    else:
+        print 'Solved!!'
+
+def backtracking_recur(problem, state):
+    if problem.isGoalState(state):
+        #problem.visualize(state)
+        return True
+
+    # get the next uninitialized var
+    var = problem.getVar(state)
+
+    if var == (-1,-1):  # this is not supposed to happen; but may be happen due to cosmic activities; better not take any chances
+        print 'PANIC!!!!!!!!!!!!'
+        #problem.visualize()
+        exit()
+
+    # iterate over all possible values of 'var'
+    for val in list(problem.getDomain(state, var)):
+        newState = problem.trySetValue(state, var, val)
+        # check if solution is possible for 'var' == 'val'
+        if newState != None:
+            # recurse!!
+            result = backtracking_recur(problem, newState)
+            if result == True:      # we're good
+                return True
+            # 'val' is not the right choice for 'var'
+            problem.removeValue(state, var, val)
+
+    # no solution!!
+    return False
+
+######################################################################
 
 def dfs(problem):
     return SolveSudoku(problem)
-    fringe = []
-    return graphSearch(problem, fringe)
-
 
 def SolveSudoku(problem):
 
     fringe = [[problem.getStartState(), -1]]
-
     counter = 1
 
     while fringe:
@@ -27,8 +58,8 @@ def SolveSudoku(problem):
         if minlength == 0:
             fringe.pop()                                #Those values are useless, and hence should be removed.
             oldState, tVar = fringe.pop()               #The oldState has lead to conflict, and should be modified
-            val = oldState[oldVar][0]                   
-            oldState[oldVar].remove(val)                
+            val = oldState[oldVar][0]
+            oldState[oldVar].remove(val)
             fringe.append([oldState, tVar])
 
         #Get legal Value
