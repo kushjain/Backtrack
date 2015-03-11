@@ -126,12 +126,11 @@ class sudoku:
         #In this case, it means variable with least choices
         
         try:
-            _, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
-        except ValueError:
-            return (-1,-1)
+            minLen, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
+        except ValueError:  # if we are in goal state i.e. all the values have been assigned
+            return -1, (-1,-1)
 
-        return bestPosition
-
+        return minLen, bestPosition
 		
     def getValue(self, state, var):
         """ Returns least constrained value for given variabe."""
@@ -143,19 +142,22 @@ class sudoku:
     def getSuccessor(self, state):
         """Returns a successor for given state"""
 
-        var = self.getVar(state)
+        returnState = state.copy()
+
+        var = self.getVar(returnState)
         if var == (-1,-1):
             return None
 
-        while state[var]:
-            val = self.getValue(state, var)
-            newState = state.copy()
+        while returnState[var]:
+            val = self.getValue(returnState, var)
+
+            newState = returnState.copy()
             newState[var] = [val]
             newState = self.prune(newState, var)
 
-            if newState == None:
+            if newState == None:        # new returnState is conflicted
                 try:
-                    state[var].remove(val)
+                    returnState[var].remove(val)
                 except ValueError:
                     #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
                     break
@@ -219,7 +221,7 @@ class sudoku:
         
 ############################################
     #TESTING
-###########################################
+############################################
 
 incompleteBoard = [((0, 0), 4), ((1, 1), 3), ((2, 2), 2), ((3, 3), 1), ((1, 2), 1), ((2, 1), 4)]
 completeBoard = [((0, 0), 4), ((1, 1), 3), ((2, 2), 2), ((3, 3), 1), ((1, 2), 1), ((2, 1), 4), ((0, 1), 1), ((0, 2), 3), ((0, 3), 2), ((1, 0), 2), ((1, 3), 4), ((2, 0), 1), ((2, 3), 3), ((3, 0), 3), ((3, 1), 2), ((3, 2), 4)]
