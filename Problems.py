@@ -1,30 +1,16 @@
 #!/usr/bin/python2
-import inspect
 import sys
 import os
-from random import random,sample,choice, shuffle
 import solveAgent
 import util
 import copy
 
-
-###########################################
 """
-ESSENTIAL TO DO
-Complete Prune() function           [DO THIS FIRST]
-Test the prune(), getSuccessor functions
-Test isGoalState() for final incorrect state (see isGoalState for more details)     [Note: Implement prune() before]
-
-OPTIONAL TO DO
-Test getStartState : Detect incorrect initial configurations [Note: Implement prune() before]
-Can program check for infeasible boards?
-Improve Getvalue() to pick least conflicted choice?
-Arc Consistency
-
-DONE AND TESTED
-init, getStartState, visualize, isGoalState
+TO DO:
+Add support for reading files
+Add support for checking if read file is in wrong format. [for example: if 4x4 sudoku is given with args -n 9]
+Check whether it can detect infeasible puzzles
 """
-###########################################
 
 class sudoku:
     """This class contains member functions which describe the empty sudoko board"""
@@ -242,7 +228,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-n", type=int, default=9, help="size of problem")
-parser.add_argument("-i", default='test', help="file containing the initial input configuration for sudoku")
+parser.add_argument("-i", default='tests.txt', help="file containing the initial input configuration for sudoku")
 args = parser.parse_args()
 
 predefValues = util.readConfigFile(args.i, args.n)
@@ -251,17 +237,26 @@ print len(predefValues), 'sudoku(s)'
 
 prob = [sudoku(N=args.n, predefinedValues=val) for val in predefValues]
 
+total_counter = 0
+index = 1
+win = 0
 
 for p in prob:
-    solveAgent.dfs(p)
-    #start_state = p.getStartState()
-    #p.visualize(start_state)
-    #print p.isGoalState(start_state)
-    #q = p.getSuccessor(start_state)
-    #print p.visualize(q)
-    #r = p.getSuccessor(q)
-    #print p.visualize(r)
+
+    state, ctr = solveAgent.SolveSudoku(p)
+
+    if state:
+        #print "Solution found for", index, "in", ctr
+        #p.visualize(state)
+        total_counter += ctr
+        win += 1
+
+    index += 1
     
-    #raw_input()
     
+index -=1
+print "In total", win, "solutions found out of", index, "problems"
+print "Win Rate", win*100.0/index
+try:                                            #In case of No Win.
+    print "Mean Total Iterations before Solution found", float(total_counter)/win
 
