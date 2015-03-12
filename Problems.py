@@ -260,4 +260,5 @@ print "In total", win, "solutions found out of", index, "problems"
 print "Win Rate", win*100.0/index
 try:                                            #In case of No Win.
     print "Mean Total Iterations before Solution found", float(total_counter)/win
-
+except:
+    pass
