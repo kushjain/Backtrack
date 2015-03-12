@@ -1,8 +1,7 @@
 # Backtrack
 Implement Backtrack search for Problems
 
-# Min-Conflicts
-Implements Min Conflicts Algorithm to variety of problems
+# Backtracking
 
 Inspired by CS 188 course on Artificial Intelligence (https://courses.edx.org/courses/BerkeleyX/CS188.1x-4/1T2015/info) 
 This is not homework, so it does not violate any Honor Policy.
@@ -24,15 +23,9 @@ It is augmented by several important additions
 * Forward Checking: In addition to backtracking, we propogate the constraints further, so that we may find inconsistency earlier. http://en.wikipedia.org/wiki/Look-ahead_%28backtracking%29
 * Picking Most Conflicted/constrained variable: This can shorten the search space considerably. 
 
-In addition, there are algorithsm which enforce arc consistency, or tryign to pick optimal value for given variable. We may implement them in future.
+In addition, there are algorithms which 
+* Enforce arc consistency.
+* Try to pick optimal value for given variable. [Least Constrained Value]
+We may implement them in future.
 
-All algorithms could be found in solveagents.py
-
-### Progress
-
-8 March:
-* Added basic initializations
-
-### Keep in Mind!
-
-* Code not completed yet! Also, a large portion is untested for now.
+All algorithms could be found in solveaAgents.py
