@@ -1,29 +1,16 @@
 #!/usr/bin/python2
-import inspect
 import sys
 import os
-from random import random,sample,choice, shuffle
 import solveAgent
 import util
+import copy
 
-
-###########################################
 """
-ESSENTIAL TO DO
-Complete Prune() function           [DO THIS FIRST]
-Test the prune(), getSuccessor functions
-Test isGoalState() for final incorrect state (see isGoalState for more details)     [Note: Implement prune() before]
-
-OPTIONAL TO DO
-Test getStartState : Detect incorrect initial configurations [Note: Implement prune() before]
-Can program check for infeasible boards?
-Improve Getvalue() to pick least conflicted choice?
-Arc Consistency
-
-DONE AND TESTED
-init, getStartState, visualize, isGoalState
+TO DO:
+Add support for reading files
+Add support for checking if read file is in wrong format. [for example: if 4x4 sudoku is given with args -n 9]
+Check whether it can detect infeasible puzzles
 """
-###########################################
 
 class sudoku:
     """This class contains member functions which describe the empty sudoko board"""
@@ -56,18 +43,18 @@ class sudoku:
         
         self.region = lambda pos: (int(pos[0]/self.size**0.5), int(pos[1]/self.size**0.5))
 
+        self.changedVal = []
+
     def prune(self, state, position, ignoreFixed=True):
         
         """Given a position, it takes the value and apply the Unary contraints with respect to fixed configuration of board"""
 
         queue = [position]
-        closed = set()
+        closed = set([(position[0], position[1])])
         
         while queue:
             x, y = queue.pop()
-            val = self.getValue(state, (x,y))
-
-            closed.add((x,y))
+            val = self.getValue(state, (x,y))               
 
             neighbours = []
 
@@ -87,9 +74,11 @@ class sudoku:
 
                 if len(state[node]) == 1  and node not in closed and (not ignoreFixed or node not in self.fixedPos):
                     queue.append(node)
+                    closed.add(node)
+
                 elif len(state[node]) == 0:
-                    """
-                    print 'In prune, failed due to', node, 'while working on', (x,y)
+                    
+                    """print 'In prune, failed due to', node, 'while working on', (x,y)
                     self.visualize(state)
                     """
                     return None                                 #Conflict detected
@@ -126,9 +115,11 @@ class sudoku:
         #In this case, it means variable with least choices
         
         try:
-            minLen, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
-        except ValueError:  # if we are in goal state i.e. all the values have been assigned
-            return -1, (-1,-1)
+            minLength, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
+        except ValueError:
+            return (-1,-1)
+
+        return minLength, bestPosition
 
         return minLen, bestPosition
 		
@@ -137,33 +128,35 @@ class sudoku:
         #This means we plug in all values for variable, and then sum up the values to check.
         #In this test module, however we simply pick the first value in Domain
 
-        return state[var][0]
+        try:
+            return state[var][0]
+        except:
+            return None
 
-    def getSuccessor(self, state):
+    def getSuccessor(self, state, var):
         """Returns a successor for given state"""
-
-        returnState = state.copy()
-
-        var = self.getVar(returnState)
+        
         if var == (-1,-1):
             return None
 
+        returnState = state
+
         while returnState[var]:
             val = self.getValue(returnState, var)
-
-            newState = returnState.copy()
+            newState = copy.deepcopy(returnState)
             newState[var] = [val]
             newState = self.prune(newState, var)
 
             if newState == None:        # new returnState is conflicted
                 try:
                     returnState[var].remove(val)
+                    #print "Removing", val, "from ", var, "Left", returnState[var]
                 except ValueError:
                     #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
                     break
             else:
                 return newState
-        
+    
         #print 'no possible value for', var
         return None                  #If no value found
         
@@ -200,6 +193,11 @@ class sudoku:
 
     def visualize(self, state):
         """Visualize the current state using ASCII-art of the board"""
+
+        #If there is no state
+        if state == None:
+            print "No State"
+            return
         
         if os.name == 'posix':
             self.unix_visualize(state)
@@ -231,15 +229,35 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-n", type=int, default=9, help="size of problem")
-parser.add_argument("-i", default='test', help="file containing the initial input configuration for sudoku")
+parser.add_argument("-i", default='tests.txt', help="file containing the initial input configuration for sudoku")
 args = parser.parse_args()
 
-predefValues = util.readConfigFile(args.i)
+predefValues = util.readConfigFile(args.i, args.n)
 
 print len(predefValues), 'sudoku(s)'
 
 prob = [sudoku(N=args.n, predefinedValues=val) for val in predefValues]
 
+total_counter = 0
+index = 1
+win = 0
+
 for p in prob:
-    solveAgent.dfs(p)
-    raw_input()
+
+    state, ctr = solveAgent.SolveSudoku(p)
+
+    if state:
+        #print "Solution found for", index, "in", ctr
+        #p.visualize(state)
+        total_counter += ctr
+        win += 1
+
+    index += 1
+    
+    
+index -=1
+print "In total", win, "solutions found out of", index, "problems"
+print "Win Rate", win*100.0/index
+try:                                            #In case of No Win.
+    print "Mean Total Iterations before Solution found", float(total_counter)/win
+

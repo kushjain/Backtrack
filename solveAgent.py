@@ -1,50 +1,54 @@
-
 """
-Test the Problem Board before!
-I have written a general algorithm. which should be correct, but without problem defintion, cannot test it.
+TO DO:
+Check against your solution and find out which works better.
+Check on basis of time, and not on iterations!!
 """
 
-def graphSearch(problem, fringe):
-    #Generic Graph Search Algorithm Main Function
-    closed = set()                          #Needed? 
-    fringe.append([(problem.getStartState(), -1)])     #Structure is : [(item), (item), ...], priority where each item is (state, direction, total Cumulative Cost)
+def SolveSudoku(problem):
+
+    fringe = [[problem.getStartState(), -1]]
+    counter = 1
     
-    while True:
-        if not len(fringe):
-            return []
-            
-        node = fringe.pop()
-        print "Node", len(node)
-        
-        lastState, lastVar = node[-1]
-        problem.visualize(lastState)
-        
-        if problem.isGoalState(lastState):
-            return lastState
+    while fringe:
 
-        minLength, var = problem.getVar(lastState)
-        print var, minLength
+        state, oldVar = fringe[-1]                    #Last State and Last Value to be Plugged
 
-        if minLength == 0:
-            #Call last state
-            newNode = node[:-1]
-            val = lastState[lastVar]
-            lastState[lastVar].remove(val)
-            state = problem.getSuccessor(lastState, lastVar)           
+        #Win, return Goal.
+        #Necessary in start, to check whether initial state is goal state.
+        if problem.isGoalState(state):
+            #print "Solution found in", counter, "moves"
+            #problem.visualize(newState)
+            return state, counter
+        
+        minlength, var = problem.getVar(state)
+
+        #There exists a variable for which there are no legal values left.
+        #It will happen when backtracking we keep removing values from variable, and are left with none : i.e. the state leading to it was wrong.
+        if minlength == 0:
+            fringe.pop()                                #Current state is useless, and thrown away
+            oldState, tVar = fringe.pop()               #The Last state has led to conflict and should be modified.
+            val = oldState[oldVar][0]                   
+            oldState[oldVar].remove(val)                
+            fringe.append([oldState, tVar])
+            continue
+
+        #Get legal Value
+        newState = problem.getSuccessor(state, var)
+
+        #No correct value exists for given variable. It will happen if our forward check reveals that no value fits.
+        #We should modify the last state to correct this conflict.
+        if newState == None:
+            lastState, lastVar = fringe.pop()           
+            oldState, tVar = fringe.pop()                  #This led to conflict, and should be modified.
+            val = oldState[oldVar][0]                      #The current value of oldVar should not be used again. 
+            oldState[oldVar].remove(val)
+            fringe.append([oldState, tVar])
+
+        #Keep On Plugging Values
         else:
-            state = problem.getSuccessor(lastState, var)
+            fringe.append([newState, var])
 
-        #If conflict, pop the state
-        if state == None:
-            newNode = node[:-1]
-        #Else, push the new state
-        else:
-            newNode = node + [(state, var)]
-            
-        fringe.append(newNode)
-        
-        #raw_input()
+        counter += 1
 
-def dfs(problem):
-    fringe = []
-    return graphSearch(problem, fringe)
+    #No solution found.
+    return None, counter                                    
