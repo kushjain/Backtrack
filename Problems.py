@@ -23,34 +23,32 @@ class sudoku:
             raise Exception('sudoku: Illegal board size')
 
         self.size = N
-        self.board = [['.' for x in range(self.size)] for y in range(self.size)]
+        self.valDomain = {}
 
-        #Initialize the board positions
+        # save the fixed positions and assign their domain values
         self.fixedPos = set()
         for pos, val in predefinedValues:
             self.fixedPos.add(pos)
-            self.board[pos[0]][pos[1]] = val
+            self.valDomain[pos] = [val]
 
-        #Initialize the rest of board and assign domains to rest of positions
-        self.valDomain = {}
+        # assign domains to rest of the positions
         for x in range(self.size):
             for y in range(self.size):
                 pos = (x, y)
                 if pos not in self.fixedPos:
                     self.valDomain[pos] = [i for i in range(1, self.size+1)]
-                else:
-                    self.valDomain[pos] = [self.board[x][y]]
         
+        # useful small functions
         self.region = lambda pos: (int(pos[0]/self.size**0.5), int(pos[1]/self.size**0.5))
-
-        self.changedVal = []
+        self.getValue = lambda state, var: state[var][0]
+        self.getDomain = lambda state, var: state[var]
+        self.removeValue = lambda state, var, val: state[var].remove(val)
 
     def prune(self, state, position, ignoreFixed=True):
-        
         """Given a position, it takes the value and apply the Unary contraints with respect to fixed configuration of board"""
 
         queue = [position]
-        closed = set([(position[0], position[1])])
+        closed = set(position)
         
         while queue:
             x, y = queue.pop()
@@ -66,28 +64,27 @@ class sudoku:
             stop = start[0] + int(self.size**0.5), start[1] + int(self.size**0.5)
             neighbours.extend([(i,j) for i in range(start[0],stop[0]) for j in range(start[1],stop[1]) if (i,j) != (x,y)])  # same region
 
+            # check the effect of setting 'val' to 'position' on neighbours 
             for node in neighbours:
                 try:
+                    # remove 'val' from domain
                     state[node].remove(val)
                 except ValueError:
                     pass
 
+                # single value left?
                 if len(state[node]) == 1  and node not in closed and (not ignoreFixed or node not in self.fixedPos):
                     queue.append(node)
                     closed.add(node)
 
+                # domain empty?
                 elif len(state[node]) == 0:
-                    
-                    """print 'In prune, failed due to', node, 'while working on', (x,y)
-                    self.visualize(state)
-                    """
                     return None                                 #Conflict detected
             
         return state
 
     def getStartState(self):
         """Initializes the board, and returns starting configuration"""
-	#In this, instead of board, we propagate value domains. 
 
         for position in self.fixedPos:
             self.valDomain = self.prune(self.valDomain, position, ignoreFixed=False)
@@ -97,6 +94,7 @@ class sudoku:
                 sys.exit()
 
         return self.valDomain
+
 
     def isGoalState(self, state):
         """Returns whether given state is goal or not"""
@@ -114,51 +112,48 @@ class sudoku:
         """Returns Most Heavily constrained variable"""
         #In this case, it means variable with least choices
         
-        try:
-            minLength, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
-        except ValueError:
-            return (-1,-1)
-
-        return minLength, bestPosition
-
-        return minLen, bestPosition
-		
-    def getValue(self, state, var):
-        """ Returns least constrained value for given variabe."""
-        #This means we plug in all values for variable, and then sum up the values to check.
-        #In this test module, however we simply pick the first value in Domain
-
-        try:
-            return state[var][0]
-        except:
+        minLength, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
+        
+        if minLength == 0:
             return None
+        else:
+            return bestPosition
+		
+    def setValue(self, state, var, val):
+        """Set the value of 'var' to 'val'"""
+        state[var] = [val]
 
-    def getSuccessor(self, state, var):
+    def trySetValue(self, state, var, val):
+        """sets 'var' to 'val and checks for constraints. Returns 'None' if constraints fail else the new state"""
+        
+        newState = copy.deepcopy(state)
+        newState[var] = [val]
+        newState = self.prune(newState, var)
+
+        return newState
+
+    def getSuccessor(self, state):
         """Returns a successor for given state"""
         
-        if var == (-1,-1):
-            return None
+        var = self.getVar(state)
+        if var == None:
+            return None, None
 
-        returnState = state
-
-        while returnState[var]:
-            val = self.getValue(returnState, var)
-            newState = copy.deepcopy(returnState)
-            newState[var] = [val]
+        while state[var]:
+            val = self.getValue(state, var)
+            newState = copy.deepcopy(state)
+            self.setValue(newState, var, val)
             newState = self.prune(newState, var)
 
-            if newState == None:        # new returnState is conflicted
+            if newState == None:        # new state is conflicted
                 try:
-                    returnState[var].remove(val)
-                    #print "Removing", val, "from ", var, "Left", returnState[var]
+                    state[var].remove(val)
                 except ValueError:
-                    #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
                     break
             else:
-                return newState
+                return newState, var
     
-        #print 'no possible value for', var
-        return None                  #If no value found
+        return None, None         #If no value found
         
     def unix_visualize(self, state):
         """Visualize the current state using ASCII-art of the board"""
@@ -221,9 +216,6 @@ class sudoku:
     #TESTING
 ############################################
 
-incompleteBoard = [((0, 0), 4), ((1, 1), 3), ((2, 2), 2), ((3, 3), 1), ((1, 2), 1), ((2, 1), 4)]
-completeBoard = [((0, 0), 4), ((1, 1), 3), ((2, 2), 2), ((3, 3), 1), ((1, 2), 1), ((2, 1), 4), ((0, 1), 1), ((0, 2), 3), ((0, 3), 2), ((1, 0), 2), ((1, 3), 4), ((2, 0), 1), ((2, 3), 3), ((3, 0), 3), ((3, 1), 2), ((3, 2), 4)]
-
 # run with '-h' for 'usage'
 import argparse
 
@@ -243,10 +235,10 @@ index = 1
 win = 0
 
 for p in prob:
-
+    #solveAgent.backtracking_search(p)
     state, ctr = solveAgent.SolveSudoku(p)
 
-    if state:
+    if state != None:
         #print "Solution found for", index, "in", ctr
         #p.visualize(state)
         total_counter += ctr
@@ -254,11 +246,10 @@ for p in prob:
 
     index += 1
     
-    
-index -=1
+index -= 1
 print "In total", win, "solutions found out of", index, "problems"
 print "Win Rate", win*100.0/index
 try:                                            #In case of No Win.
     print "Mean Total Iterations before Solution found", float(total_counter)/win
 except:
-    pass
+    print "No wins :("
