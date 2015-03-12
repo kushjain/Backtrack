@@ -28,4 +28,4 @@ In addition, there are algorithms which
 * Try to pick optimal value for given variable. [Least Constrained Value]
 We may implement them in future.
 
-All algorithms could be found in solveaAgents.py
+All algorithms could be found in solveAgents.py
