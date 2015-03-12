@@ -87,7 +87,7 @@ class sudoku:
 
     def getStartState(self):
         """Initializes the board, and returns starting configuration"""
-	#In this, instead of board, we propagate value domains. 
+	#We propagate value domains. 
 
         for position in self.fixedPos:
             self.valDomain = self.prune(self.valDomain, position, ignoreFixed=False)
@@ -115,49 +115,30 @@ class sudoku:
         #In this case, it means variable with least choices
         
         try:
-            minLength, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
+            ___, bestPosition = min([(len(state[(x,y)]), (x,y)) for x in range(self.size) for y in range(self.size) if len(state[(x,y)]) != 1])
         except ValueError:
             return (-1,-1)
 
-        return minLength, bestPosition
+        return bestPosition
 
-		
-    def getValue(self, state, var):
-        """ Returns least constrained value for given variabe."""
-        #This means we plug in all values for variable, and then sum up the values to check.
-        #In this test module, however we simply pick the first value in Domain
+    def getSuccessors(self, state):
 
-        try:
-            return state[var][0]
-        except:
-            return None
+        #Get the variable
+        var = self.getVar(state)
 
-    def getSuccessor(self, state, var):
-        """Returns a successor for given state"""
-        
-        if var == (-1,-1):
-            return None
+        stateList = []
 
-        returnState = state
-
-        while returnState[var]:
-            val = self.getValue(returnState, var)
-            newState = copy.deepcopy(returnState)
+        #Check all possible values of variable        
+        for val in state[var]:
+            newState = copy.deepcopy(state)
             newState[var] = [val]
             newState = self.prune(newState, var)
 
-            if newState == None:
-                try:
-                    returnState[var].remove(val)
-                    #print "Removing", val, "from ", var, "Left", returnState[var]
-                except ValueError:
-                    #print util.bcolors.WARNING + 'trying to delete invalid value at', node, util.bcolors.ENDC
-                    break
-            else:
-                return newState
-    
-        #print 'no possible value for', var
-        return None                  #If no value found
+            #If forward checking (prune) is true, then that value may be valid
+            if newState:
+                stateList.append(newState)
+
+        return stateList
         
     def unix_visualize(self, state):
         """Visualize the current state using ASCII-art of the board"""
@@ -246,11 +227,11 @@ for p in prob:
     state, ctr = solveAgent.SolveSudoku(p)
 
     if state:
-        #print "Solution found for", index, "in", ctr
+        print "Solution found for", index, "in", ctr
         #p.visualize(state)
         total_counter += ctr
         win += 1
-
+        
     index += 1
     
     
@@ -259,4 +240,5 @@ print "In total", win, "solutions found out of", index, "problems"
 print "Win Rate", win*100.0/index
 try:                                            #In case of No Win.
     print "Mean Total Iterations before Solution found", float(total_counter)/win
-
+except:
+    print "No Win"
